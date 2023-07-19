@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
-	"traider/internal/app"
+	"trrader/internal/adapter"
+	"trrader/internal/app"
+	"trrader/internal/traidingview"
 )
 
 func main() {
@@ -12,4 +14,6 @@ func main() {
 	if err != nil {
 		log.Fatal()
 	}
+	traidingview.HH()
+	adapter.HeyfromAdapter()
 }

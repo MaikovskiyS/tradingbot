@@ -1,4 +1,4 @@
-package tradingview
+package traidingview
 
 import "fmt"
 
