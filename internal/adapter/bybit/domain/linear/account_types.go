@@ -22,6 +22,17 @@ type PlaceActiveOrderParams struct {
 	PositionIDx    int               `url:"position_idx,omitempty" json:"position_idx,omitempty"`
 }
 
+func (p *PlaceActiveOrderParams) SetParams(symbol string, side bybit.Side, qty float64) {
+	p.Side = side
+	p.Symbol = symbol
+	p.OrderType = "Market"
+	p.Qty = qty
+	p.TimeInForce = bybit.TimeInForceGoodTillCancel
+	p.ReduceOnly = false
+	p.CloseOnTrigger = false
+
+}
+
 type PlaceActiveOrderResponse struct {
 	domain.LinearBaseResponse `json:",inline"`
 	Result                    PlaceActiveOrderResult `json:"result"`
