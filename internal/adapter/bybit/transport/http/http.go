@@ -84,7 +84,6 @@ func (h *HTTP) UnsignedRequest(ctx context.Context, method string, path string, 
 	if err != nil {
 		return
 	}
-
 	queryString, err := query.Values(params)
 	if err != nil {
 		return

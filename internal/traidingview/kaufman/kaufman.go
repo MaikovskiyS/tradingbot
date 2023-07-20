@@ -34,7 +34,7 @@ func (i *Indicator) GetAlert(w http.ResponseWriter, r *http.Request) {
 func (i *Indicator) Testt() {
 	for {
 
-		i.Data.Ticker = "BTCUSDT"
+		i.Data.Ticker = "OPUSDT"
 		i.Data.Side = "Sell"
 		fmt.Println("data to chan in kaufman testt")
 		i.Channel <- i.Data
