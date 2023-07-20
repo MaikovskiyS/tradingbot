@@ -28,6 +28,7 @@ func (s *service) StartTraiding() {
 	for {
 		alert := s.Trview.GetData()
 		p.Symbol = alert.Ticker
+		fmt.Println(p)
 		book, err := bb.Market().GetOrderBook(ctx, p)
 		if err != nil {
 			fmt.Println(err)

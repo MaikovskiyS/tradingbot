@@ -28,6 +28,7 @@ type HTTP struct {
 
 func New(url, apiKey, apiSecret string) *HTTP {
 	return &HTTP{
+
 		BaseURL:   bybit.BytickMainnetBaseURL,
 		APIKey:    apiKey,
 		APISecret: apiSecret,
@@ -89,9 +90,9 @@ func (h *HTTP) UnsignedRequest(ctx context.Context, method string, path string, 
 		return
 	}
 	apiPath.RawQuery = queryString.Encode()
-
 	payload, err := h.unSignedRequestCall(ctx, apiPath, method, nil, nil)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 
