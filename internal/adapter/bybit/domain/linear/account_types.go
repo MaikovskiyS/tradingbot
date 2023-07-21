@@ -22,14 +22,22 @@ type PlaceActiveOrderParams struct {
 	PositionIDx    int               `url:"position_idx,omitempty" json:"position_idx,omitempty"`
 }
 
-func (p *PlaceActiveOrderParams) SetParams(symbol string, side bybit.Side, qty float64) {
+func (p *PlaceActiveOrderParams) SetParams(symbol string, side bybit.Side, qty, price float64) {
+	positionidx := 0
+	if side == "Sell" {
+		positionidx = 2
+	} else if side == "Buy" {
+		positionidx = 1
+	}
 	p.Side = side
 	p.Symbol = symbol
-	p.OrderType = "Market"
+	p.Price = price
+	p.OrderType = "Limit"
 	p.Qty = qty
 	p.TimeInForce = bybit.TimeInForceGoodTillCancel
 	p.ReduceOnly = false
 	p.CloseOnTrigger = false
+	p.PositionIDx = positionidx
 
 }
 
