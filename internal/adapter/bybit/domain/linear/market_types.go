@@ -48,6 +48,29 @@ type QueryKlineResult struct {
 	Close    float64 `json:"close"`
 	Turnover float64 `json:"turnover"`
 }
+type LowByPrice []QueryKlineResult
+
+func (s LowByPrice) Len() int {
+	return len(s)
+}
+func (s LowByPrice) Less(i, j int) bool {
+	return s[i].Low < s[j].Low
+}
+func (s LowByPrice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+type HigherByPrice []QueryKlineResult
+
+func (s HigherByPrice) Len() int {
+	return len(s)
+}
+func (s HigherByPrice) Less(i, j int) bool {
+	return s[i].High > s[j].High
+}
+func (s HigherByPrice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
 
 type GetSymbolInformationParams struct {
 	Symbol string `url:"symbol,omitempty" json:"symbol,omitempty"`
