@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -23,9 +24,10 @@ func New(tv *traidingview.TraidingView) *server {
 	}
 }
 func (s *server) Run() {
-	// go func() {
-	if err := s.server.ListenAndServe(); err != nil {
-		log.Fatalf("Failed to listen and serve: %+v", err)
-	}
-	//	}()
+	fmt.Println("server starting")
+	go func() {
+		if err := s.server.ListenAndServe(); err != nil {
+			log.Fatalf("Failed to listen and serve: %+v", err)
+		}
+	}()
 }

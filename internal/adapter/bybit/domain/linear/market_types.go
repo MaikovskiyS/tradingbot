@@ -23,10 +23,10 @@ type OrderBookResult struct {
 }
 
 type QueryKlineParams struct {
-	Symbol   string         `url:"symbol" json:"symbol"`
-	Interval bybit.Interval `url:"interval" json:"interval"`
-	From     int            `url:"from" json:"from"`
-	Limit    int            `url:"limit,omitempty" json:"limit,omitempty"`
+	Symbol   string `url:"symbol" json:"symbol"`
+	Interval int    `url:"interval" json:"interval"`
+	From     int    `url:"from" json:"from"`
+	Limit    int    `url:"limit,omitempty" json:"limit,omitempty"`
 }
 
 type QueryKlineResponse struct {

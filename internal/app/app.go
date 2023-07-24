@@ -12,14 +12,14 @@ import (
 func Run() error {
 	secret := os.Getenv("secretkey")
 	api := os.Getenv("apikey")
-	tv := traidingview.New()
-	//tv.GetData()
-	rest := adapter.NewRestClient(bybit.BytickMainnetBaseURL, api, secret)
+
+	bybit := adapter.NewRestClient(bybit.BytickMainnetBaseURL, api, secret)
+	svc := service.New(bybit)
+	tv := traidingview.New(svc)
 	tv.RegisterRoutes()
-	tv.Start()
-	svc := service.New(tv, rest)
-	svc.StartTraiding()
 	server := server.New(tv)
 	server.Run()
+	tv.Start()
+
 	return nil
 }

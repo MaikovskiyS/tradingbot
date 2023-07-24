@@ -1,5 +1,7 @@
 package models
 
-type Order struct{
-	
+type Params struct {
+	Ticker string
+	Side  string
+  
 }

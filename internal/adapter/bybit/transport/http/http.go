@@ -196,7 +196,6 @@ func (h *HTTP) signedRequestCall(ctx context.Context, apiPath *url.URL, method s
 
 	// replace encodings to make it work with http.NewRequest
 	urlString := strings.ReplaceAll(apiURL.String(), "%2C", ",")
-	fmt.Println(urlString)
 	req, err := http.NewRequestWithContext(ctx, method, urlString, bytes.NewBuffer(payload))
 	if err != nil {
 		fmt.Println(err)
