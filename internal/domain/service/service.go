@@ -12,7 +12,6 @@ import (
 	"trrader/internal/adapter"
 	"trrader/internal/adapter/bybit"
 	"trrader/internal/adapter/bybit/domain/linear"
-	"trrader/internal/traidingview"
 )
 
 const (
@@ -40,17 +39,17 @@ func New(cl *adapter.Client) *service {
 }
 
 // TODO сделать мониторинг сделки и перенос стопа в безубыток
-func (s *service) StartTraiding(a traidingview.StrategyAlert) error {
+func (s *service) StartTraiding(ticker, side string) error {
 	cl := s.Bybit.Linear()
 	p := &linear.GetPositionsBySymbolParams{
-		Symbol: a.Adx.Ticker,
+		Symbol: ticker,
 	}
 	resp, err := cl.Account().GetPositionsBySymbol(s.ctx, p)
 	if err != nil {
 		return err
 	}
 	checker := 0
-	if a.Adx.Side == "Sell" {
+	if side == "Sell" {
 		checker = 1
 	}
 	if resp.Result[checker].EntryPrice != 0.0 {
@@ -58,8 +57,7 @@ func (s *service) StartTraiding(a traidingview.StrategyAlert) error {
 			resp.Result[checker].UnrealisedPnl))
 		return err
 	} else {
-		ticker := a.Adx.Ticker
-		side := bybit.Side(a.Adx.Side)
+		side := bybit.Side(side)
 		order, _ := s.CreateOrder(ticker, side)
 		time.Sleep(2 * time.Second)
 		fmt.Println(order.OrderStatus)
@@ -76,6 +74,7 @@ func (s *service) CreateOrder(ticker string, side bybit.Side) (*linear.PlaceActi
 	params, err := s.SetActiveOrderParams(param)
 	fmt.Println(params)
 	orderResponse, err := cl.Account().PlaceActiveOrder(s.ctx, params)
+	fmt.Println(orderResponse)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -123,7 +122,6 @@ func (s *service) SetActiveOrderParams(param *linear.PlaceActiveOrderParams) (*l
 }
 
 // get order parametr- stoploss
-// TODO если stop в процентах больше 1или 0.5???? ставим какой то свой stoploss
 func (s *service) GetStopLoss(symbol string, side bybit.Side) (stop float64, err error) {
 	cl := s.Bybit.Linear()
 	limit := 5
@@ -154,22 +152,20 @@ func (s *service) GetStopLoss(symbol string, side bybit.Side) (stop float64, err
 // get order parametr- qty (with exchange commision)
 func (s *service) GetQty(symbol string, side bybit.Side, price, stop float64) (qty float64) {
 	qty = balance / price
-	//fmt.Println("qty in beginning", qty)
 	loses := 0.0
 	for {
 		loses = s.CalculateLoses(loses, qty, price, stop, side)
-		//fmt.Println("loses in qty:", loses)
 		loses = math.Floor(loses*math.Pow(10, s.Lenprice)) / math.Pow(10, s.Lenprice)
-		// fmt.Println("loses after mathFlorr:", loses)
-		// fmt.Println("maxloses:", maxLoses)
 		if loses <= maxLoses {
 			break
 		}
 		qty = qty - (qty * 0.1)
-		//fmt.Println("qty in circle:", qty)
+	}
+	if qty > 1.0 {
+		qty = math.Floor(qty*math.Pow(10, 2)) / math.Pow(10, 2)
+		return qty
 	}
 	qty = math.Floor(qty*math.Pow(10, s.Lenprice)) / math.Pow(10, s.Lenprice)
-	//fmt.Println("qty:", qty)
 	return qty
 }
 
@@ -191,7 +187,6 @@ func (s *service) GetTakeProfit(symbol string, side bybit.Side, price, stop floa
 // set other params
 func (s *service) SetOtherParams(p *linear.PlaceActiveOrderParams) (*linear.PlaceActiveOrderParams, error) {
 	p.OrderType = "Limit"
-	p.OrderLinkID = "adxStr"
 	p.TimeInForce = bybit.TimeInForceGoodTillCancel
 	p.ReduceOnly = false
 	p.CloseOnTrigger = false
@@ -212,39 +207,52 @@ func (s *service) FollowPosition(position linear.PositionsResult, stoplossTicker
 	loses := 0.0
 	loses = s.CalculateLoses(loses, position.Size, position.EntryPrice, position.StopLoss, bybit.Side(position.Side))
 	loses = math.Floor(loses*math.Pow(10, 4)) / math.Pow(10, 4)
-
-	loses = loses - 0.47
+	//loses = loses - 0.47
 	fmt.Println(loses)
 	if position.UnrealisedPnl > loses {
-		// trailingstop, err := cl.Account().SetTradingStop(s.ctx, &linear.SetTradingStopParams{Symbol: position.Symbol, Side: bybit.Side(position.Side), StopLoss: position.EntryPrice})
-		// fmt.Println(stopresp.Result)
-		activeOrder, _ := cl.Account().GetActiveOrder(s.ctx, &linear.GetActiveOrderParams{Symbol: position.Symbol})
-		fmt.Println(activeOrder.Result.Data)
-		//fmt.Println("activeOrder:", activeOrder.Result.Data[0].OrderID)
-		condresp, _ := cl.Account().GetConditionalOrder(s.ctx, &linear.GetConditionalOrderParams{Symbol: traidingSymbol})
-		fmt.Println("Condional:", condresp)
-		fmt.Println("UserId:", condresp.Result.Data[0].UserID)
-		fmt.Println("OrderStatus:", condresp.Result.Data[0].OrderStatus)
-		fmt.Println("OrderType:", condresp.Result.Data[0].OrderType)
-		fmt.Println("StopOrderId:", condresp.Result.Data[0].StopOrderID)
-		fmt.Println("OrderLinkId:", condresp.Result.Data[0].OrderLinkID)
-		fmt.Println("pos price:", position.EntryPrice)
-		stoporder := condresp.Result.Data[0]
+		// orderresp, _ := cl.Account().GetActiveOrder(s.ctx, &linear.GetActiveOrderParams{Symbol: traidingSymbol})
+		// fmt.Println("active order:", orderresp)
+		condresp, _ := cl.Account().GetConditionalOrder(s.ctx, &linear.GetConditionalOrderParams{Symbol: traidingSymbol, Order: "Untriggered"})
 
-		stopresp, err := cl.Account().ReplaceConditionalOrder(s.ctx, &linear.ReplaceConditionalOrderParams{Symbol: position.Symbol, PRPrice: position.EntryPrice, StopOrderID: stoporder.StopOrderID})
-		fmt.Println("replace answer:", stopresp)
+		//Всегда ли stoporder первый в массиве conditionalOrderResp??????????????
+		stopOrder := condresp.Result.Data[0]
+		takeOrder := condresp.Result.Data[1]
+		fmt.Println("stoporder:", stopOrder)
+		fmt.Println("takeOrder:", takeOrder)
+		fmt.Println("stopTrigger:", stopOrder.TriggerPrice)
+		fmt.Println("posStop:", position.StopLoss)
 
-		// fmt.Println("in change stopLoss")
-		// resp, err := cl.Account().ReplaceActiveOrder(s.ctx, &linear.ReplaceActiveOrderParams{Symbol: position.Symbol, StopLoss: position.EntryPrice, OrderID: activeOrder.Result.Data[0].OrderID})
-		// fmt.Println(resp)
+		stopresp, err := cl.Account().ReplaceConditionalOrder(s.ctx, &linear.ReplaceConditionalOrderParams{Symbol: position.Symbol, StopOrderID: stopOrder.StopOrderID, PRTriggerPrice: position.EntryPrice})
 		if err != nil {
 			fmt.Println(err)
 		}
-		if stopresp.RetMsg == "ok" {
+		fmt.Println("stopresp:", stopresp.RetMsg)
+		fmt.Println("replace answer:", stopresp)
+		if stopresp.RetMsg == "OK" {
 			fmt.Println("stop loss changed in follow position")
 			stoplossTicker = 1
 
 		}
+
+		// if takeOrder.TriggerPrice == position.TakeProfit {
+		// 	stopresp, err := cl.Account().ReplaceConditionalOrder(s.ctx, &linear.ReplaceConditionalOrderParams{Symbol: position.Symbol, StopOrderID: takeOrder.StopOrderID, PRTriggerPrice: 1.7})
+		// 	fmt.Println("replace answer:", stopresp)
+		// 	if err != nil {
+		// 		fmt.Println(err)
+		// 	}
+		// }
+
+		// fmt.Println("in change stopLoss")
+		// resp, err := cl.Account().ReplaceActiveOrder(s.ctx, &linear.ReplaceActiveOrderParams{Symbol: position.Symbol, StopLoss: position.EntryPrice, OrderID: activeOrder.Result.Data[0].OrderID})
+		// fmt.Println(resp)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+		// if stopresp.RetMsg == "ok" {
+		// 	fmt.Println("stop loss changed in follow position")
+		// 	stoplossTicker = 1
+
+		// }
 	}
 	return stoplossTicker
 }
@@ -256,9 +264,10 @@ func (s *service) CheckPosition(symbol string) (position linear.PositionsResult,
 	if err != nil {
 		fmt.Println("err:", err)
 	}
-	// orderresp, _ := cl.Account().GetActiveOrder(s.ctx, &linear.GetActiveOrderParams{Symbol: traidingSymbol})
-	// //fmt.Println(orderresp)
-
+	fmt.Println(posresp)
+	if posresp.Result[0].EntryPrice == 0.0 {
+		return linear.PositionsResult{}, errors.New("no open position")
+	}
 	switch {
 	case posresp.Result[0].Size != 0:
 		position = posresp.Result[0]
@@ -272,6 +281,8 @@ func (s *service) CheckPosition(symbol string) (position linear.PositionsResult,
 }
 
 // manage position in gorutine
+
+// TODO после установки ытопа массив не читается
 func (s *service) ManagePosition(symbol string) {
 	stoplossTicker := 0
 	for {
@@ -285,7 +296,7 @@ func (s *service) ManagePosition(symbol string) {
 			stoplossTicker = ticker
 		} else {
 			fmt.Println("stoploss already changed")
-			continue
+
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -303,4 +314,19 @@ func (s *service) CalculateLoses(loses, qty, price, stop float64, side bybit.Sid
 		loses = loses + commission
 	}
 	return loses
+}
+func (s *service) PumpAndDump() {
+	cl := s.Bybit.Linear()
+	resp, err := cl.Market().GetSymbolInformation(s.ctx, &linear.GetSymbolInformationParams{})
+	ticker := 0
+	for i, v := range resp.Result {
+		ticker = i
+		fmt.Println("Ticker:", v.Symbol)
+		//fmt.Println("1hPrice:", v.Price1HPcnt)
+		fmt.Println("Volume:", v.Volume24H)
+	}
+	fmt.Println(ticker)
+	if err != nil {
+		fmt.Println(err)
+	}
 }

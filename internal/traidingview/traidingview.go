@@ -7,21 +7,26 @@ import (
 	"trrader/internal/traidingview/adx"
 	"trrader/internal/traidingview/kaufman"
 	"trrader/internal/traidingview/macd"
+	"trrader/internal/traidingview/maintrend"
+	"trrader/internal/traidingview/trend"
 	"trrader/internal/traidingview/volatilityos"
 	"trrader/internal/traidingview/volumeos"
 )
 
 const (
-	Symbol = "OPUSDT"
+	Symbol = "OGNUSDT"
 )
 
 type Trader interface {
+	PumpAndDump()
 	ManagePosition(symbol string)
-	StartTraiding(a StrategyAlert) error
+	StartTraiding(ticker, side string) error
 }
 type TraidingView struct {
 	Trader     Trader
 	Router     *http.ServeMux
+	MainTrend  *maintrend.Indicator
+	Trend      *trend.Indicator
 	Volatility *volatilityos.Indicator
 	Volume     *volumeos.Indicator
 	Adx        *adx.Indicator
@@ -35,9 +40,13 @@ func New(svc Trader) *TraidingView {
 	volatility := volatilityos.New()
 	volume := volumeos.New()
 	adx := adx.New()
+	trend := trend.New()
+	maintrend := maintrend.New()
 	return &TraidingView{
 		Trader:     svc,
 		Router:     http.NewServeMux(),
+		MainTrend:  maintrend,
+		Trend:      trend,
 		Volatility: volatility,
 		Volume:     volume,
 		Adx:        adx,
@@ -52,6 +61,9 @@ func (t *TraidingView) RegisterRoutes() {
 	t.Router.HandleFunc("/volatility", t.Volatility.GetAlert)
 	t.Router.HandleFunc("/volume", t.Volume.GetAlert)
 	t.Router.HandleFunc("/adx", t.Adx.GetAlert)
+	t.Router.HandleFunc("/trend", t.Trend.GetAlert)
+	t.Router.HandleFunc("/maintrend", t.MainTrend.GetAlert)
+
 	//t.Router.HandleFunc("/nadaria", t.Nadaria.GetAlert)
 }
 func (t *TraidingView) Start() {
@@ -62,6 +74,9 @@ func (t *TraidingView) Start() {
 		fmt.Println("Start checking positions")
 		t.Trader.ManagePosition(Symbol)
 	}()
+	// go func() {
+	// 	t.Trader.PumpAndDump()
+	// }()
 	// for data := range t.Adx.Channel {
 	// 	adx := SideAlert{Side: data.Side, Ticker: data.Ticker}
 	// 	strategyAlert.Adx = adx
@@ -99,10 +114,51 @@ func (t *TraidingView) Start() {
 	// 		}
 	// 	}
 	// }
-	t.AdxStrategy()
+	t.BreakOutStrategy()
 }
+
+// BreakOutStrategy
+func (t *TraidingView) BreakOutStrategy() {
+	alert := BreakOutAlert{}
+	for {
+		fmt.Println("waiting alerts")
+		select {
+		case data := <-t.MainTrend.Channel:
+			fmt.Println("maintrend alert")
+			maintrend := SideAlert{Side: data.Side, Ticker: data.Ticker, TimeStamp: data.TimeStamp}
+			alert.Trend = maintrend
+		case data := <-t.Trend.Channel:
+			fmt.Println("trend alert")
+			trend := SideAlert{Side: data.Side, Ticker: data.Ticker, TimeStamp: data.TimeStamp}
+			alert.Trend = trend
+		case data := <-t.Volatility.Channel:
+			fmt.Println("volatility alert")
+			volatility := ActionAlert{Action: data.Action, Ticker: data.Ticker, TimeStamp: data.TimeStamp}
+			alert.Volatility = volatility
+		case data := <-t.Volume.Channel:
+			fmt.Println("volume alert")
+			volume := ActionAlert{Action: data.Action, Ticker: data.Ticker, TimeStamp: data.TimeStamp}
+			alert.Volume = volume
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Println(alert)
+		err := alert.Validate()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		} else {
+			fmt.Println("start traiding")
+			t.Trader.StartTraiding(alert.Trend.Ticker, alert.Trend.Side)
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+}
+
+// ADX Strategy
 func (t *TraidingView) AdxStrategy() {
-	alert := StrategyAlert{}
+	alert := AdxStrategyAlert{}
 	for {
 		fmt.Println("waiting alerts")
 		select {
@@ -127,10 +183,9 @@ func (t *TraidingView) AdxStrategy() {
 			continue
 		} else {
 			fmt.Println("start traiding")
-			t.Trader.StartTraiding(alert)
+			t.Trader.StartTraiding(alert.Adx.Ticker, alert.Adx.Side)
 		}
 
 		time.Sleep(5 * time.Second)
 	}
-
 }

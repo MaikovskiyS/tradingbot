@@ -1,4 +1,4 @@
-package volumeos
+package maintrend
 
 import (
 	"encoding/json"
@@ -19,13 +19,13 @@ func New() *Indicator {
 	}
 }
 func (i *Indicator) GetAlert(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("in volume get alert")
+	fmt.Println("in maintrend get alert")
 	err := json.NewDecoder(r.Body).Decode(&i.Data)
 	if err != nil {
 		fmt.Println(err)
 	}
 	mark := time.Now().Unix()
 	i.Data.TimeStamp = mark
-	//fmt.Println("alert:", i.Data)
+	fmt.Println("maintrend alert:", i.Data)
 	i.Channel <- i.Data
 }

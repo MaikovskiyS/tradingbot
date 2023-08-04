@@ -1,7 +1,7 @@
-package volumeos
+package maintrend
 
 type Data struct {
 	Ticker    string `json:"ticker"`
-	Action    string `json:"action"`
+	Side      string `json:"side"`
 	TimeStamp int64
 }
